@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: truthlens-ml
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_PATH=model/classifier.pkl
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - truthlens-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: truthlens-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - ML_SERVICE_URL=http://ml-service:8000
+    depends_on:
+      ml-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - truthlens-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: truthlens-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - truthlens-net
+
+networks:
+  truthlens-net:
+    driver: bridge
